@@ -1,0 +1,145 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[2]:
+
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
+import lxml
+import time
+from selenium.webdriver.support import expected_conditions as EC
+import requests
+from bs4 import BeautifulSoup as bs
+import re 
+import csv
+import os
+import codecs
+import smtplib
+from email.header import Header
+from email.mime.text import MIMEText
+
+chrome_options = Options()
+#chrome_options.add_argument('--headless')
+#chrome_options.add_argument('--disable-gpu')
+path = r'E:\software\ana\chromedriver.exe' 
+driver = webdriver.Chrome(executable_path=path, options=chrome_options)
+driver.get('http://www.newsmth.net/nForum/#!board/Intern')
+time_stamp=time.strftime('%Y-%m-%d',time.localtime(time.time()))
+file_name = str(time_stamp)+'实习推送.txt'
+file_obj = codecs.open(file_name,'a+', 'utf-8') # 防止乱码
+writer = csv.writer(file_obj)
+writer.writerow(["标题","网址"])
+def tsinghua():
+    page = 1
+    for page in range(1,4):
+            for i in range(1,30):
+                #a= driver.find_element_by_xpath('//*[@id="body"]/div[3]/table/tbody/tr[1]/td[3]')
+                a = WebDriverWait(driver, 10).until(EC.invisibility_of_element_located((By.XPATH,'//*[@id="body"]/div[3]/table/tbody/tr[1]/td[3]')))
+                #bool_.text
+                if ":" in a[0].text:
+                        print('today')
+                        name = driver.find_element_by_xpath('//*[@id="body"]/div[3]/table/tbody/tr['+str(i)+']/td[2]')
+                        url = driver.find_element_by_xpath('//*[@id="body"]/div[3]/table/tbody/tr['+str(i)+']/td[2]/a')
+                        pro_url = url.get_attribute('href')
+                        print(name.text)
+                        print('网页链接:',pro_url)
+                        writer.writerow([name.text,pro_url])
+                        time.sleep(0.5)
+                else:
+                    if '2019' in a.text:
+                        print(a.text)
+                        name = driver.find_element_by_xpath('//*[@id="body"]/div[3]/table/tbody/tr['+str(i)+']/td[2]')
+                        url = driver.find_element_by_xpath('//*[@id="body"]/div[3]/table/tbody/tr['+str(i)+']/td[2]/a')
+                        pro_url = url.get_attribute('href')
+                        print(name.text)
+                        print('网页链接:',pro_url)
+                        writer.writerow([name.text,pro_url])
+                        time.sleep(0.5)
+                    else:print("too old")
+            print(page)
+            next_page = driver.find_element_by_link_text('>>')
+            next_page.click()
+            time.sleep(5)
+            
+            
+def peking():        
+    file_obj = codecs.open(file_name,'a+', 'utf-8') # 防止乱码
+    writer = csv.writer(file_obj)
+    writer.writerow(["标题","网址"])
+    for i in range(1,6):
+            url = 'https://bbs.pku.edu.cn/v2/thread.php?bid=896&mode=topic&page='+str(i)
+            handle = requests.get(url)
+            bscont = bs(handle.content,'lxml')
+            bscont
+            for container in bscont.find_all('div',class_='list-item'):
+                #print(container)
+                for title in container.find_all('div',class_ ='title l limit'):
+                    print(title.text)
+                for web in container.find_all('a',class_ = 'link'):
+                    #print(web)
+                    pro_web = re.findall('(post.*)"></a>',str(web))
+                    #print(pro_web)
+                    if len(pro_web)==0:continue
+                    finalUrl = 'https://bbs.pku.edu.cn/v2/'+str(pro_web[0])
+                    finalUrl.replace('amp;',' ')
+                    if len(finalUrl.replace('amp;',' '))>75:continue
+                    print(finalUrl.replace('amp;',''),len(finalUrl.replace('amp;','')))
+                    writer.writerow([title.text,finalUrl.replace('amp;','')])
+            print(i)
+            
+            
+
+# 第三方 SMTP 服务
+
+    
+    
+def sendEmail():
+    path = r'C:\Users\APPLE\爬者'+'\\'+str(file_name)
+    file = open(path ,'r', encoding='UTF-8')
+    filecont = file.read()
+    mail_host = "smtp.163.com"      # SMTP服务器
+    mail_user = ""                  # 用户名
+    mail_pass = ""               # 授权密码，非登录密码
+    sender = 'qrlgzyd@163.com'    # 发件人邮箱(最好写全, 不然会失败)
+    #receivers = []  # 接收邮件，可设置为你的QQ邮箱或者其他邮箱
+  #接收邮件，可设置为你的QQ邮箱或者其他邮箱
+    receivers = []  # 接收邮件，可设置为你的QQ邮箱或者其他邮箱
+    content = filecont
+    title = '今日实习'  # 邮件主题
+ 
+    message = MIMEText(content, 'plain', 'utf-8')  # 内容, 格式, 编码
+    message['From'] = "{}".format(sender)
+    message['To'] = ",".join(receivers)
+    message['Subject'] = title
+ 
+    try:
+        smtpObj = smtplib.SMTP_SSL(mail_host, 465)  # 启用SSL发信, 端口一般是465
+        smtpObj.login(mail_user, mail_pass)  # 登录验证
+        smtpObj.sendmail(sender, receivers, message.as_string())  # 发送
+        print("mail has been send successfully.")
+    except smtplib.SMTPException as e:
+        print(e)
+        
+def send_email2(SMTP_host, from_account, from_passwd, to_account, subject, content):
+    email_client = smtplib.SMTP(SMTP_host)
+    email_client.login(from_account, from_passwd)
+    # create msg
+    msg = MIMEText(content, 'plain', 'utf-8')
+    msg['Subject'] = Header(subject, 'utf-8')  # subject
+    msg['From'] = from_account
+    msg['To'] = to_account
+    email_client.sendmail(from_account, to_account, msg.as_string())
+ 
+    email_client.quit()
+
+if __name__ == '__main__':
+    #usermsg()
+    tsinghua()
+    peking()
+    sendEmail()
